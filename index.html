@@ -128,6 +128,17 @@ select{width:100%;font:inherit;font-size:20px;font-weight:700;padding:12px;borde
 .resultBox{border:3px solid var(--gold);border-radius:14px;padding:14px;background:var(--surface);margin:14px 0}
 .resultBox .who{font-size:30px;font-weight:800;color:var(--orange)}
 .help{font-size:16px;color:var(--muted)}
+.comment{background:var(--mine-bg);border-left:6px solid var(--orange);padding:12px 14px;border-radius:8px;font-size:19px;white-space:pre-wrap;margin:10px 0;text-align:left}
+.table td.rk{font-weight:800;white-space:nowrap;font-size:18px}
+.table tr.top td{background:var(--mine-bg)}
+textarea{width:100%;font:inherit;font-size:19px;padding:12px;border-radius:10px;border:2px solid var(--navy2);background:var(--surface);color:var(--text);margin-bottom:10px}
+.rankGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rankBtn{display:flex;align-items:center;gap:10px;border:3px solid var(--line);background:var(--surface);color:var(--text);border-radius:12px;padding:8px;text-align:left}
+.rankBtn .plate{width:56px;height:52px;font-size:24px;flex:none}
+.rankBtn .plate.r{font-size:18px;font-family:"M PLUS 1p",sans-serif;font-weight:800}
+.rankBtn.on{border-color:var(--orange);background:var(--mine-bg)}
+.rankBtn.on .plate{background:var(--orange)}
+.rankBtn .dname{font-size:20px}
 .help h3{color:var(--text);font-size:18px;margin:14px 0 4px}
 
 /* モーダル */
@@ -191,6 +202,7 @@ let me = lsGet("kart-me");
 let loaded = false, netNote = "", busy = false;
 let adminSel = {first:"", second:"", third:""}, adminErr = "";
 let adminPin = "", adminOk = false, pinDraft = "";
+let adminOrder = [], commentDraft = "";
 
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} }
@@ -210,7 +222,7 @@ function applyState(st){
   loaded = true; netNote = "";
   afterResultChange();
   // 入力中（暗証番号の入力・プルダウン操作中）は画面を描き直さない（入力が消えないようにするため）
-  if(!document.querySelector("select:focus, input:focus")) render();
+  if(!document.querySelector("select:focus, input:focus, textarea:focus")) render();
 }
 async function refresh(){
   if(!API_URL || busy) return;
@@ -276,18 +288,26 @@ async function onPin(){
   busy = true;
   try{
     const r = await api({action:"checkPin", pin:v});
-    if(r.ok){ adminPin = v; adminOk = true; adminErr = ""; pinDraft = ""; } else adminErr = r.error || "暗証番号を確認できませんでした";
+    if(r.ok){ adminPin = v; adminOk = true; adminErr = ""; pinDraft = ""; if(result){ adminOrder = (result.order || []).slice(); commentDraft = result.comment || ""; } } else adminErr = r.error || "暗証番号を確認できませんでした";
   }catch(e){ adminErr = "通信できませんでした"; }
   busy = false; render();
 }
 async function onJudge(){
-  const {first, second, third} = adminSel;
   adminErr = "";
-  if(!first || !second || !third){ adminErr = "1位・2位・3位をすべて選んでください"; render(); return; }
-  if(new Set([first, second, third]).size < 3){ adminErr = "同じドライバーが重複しています"; render(); return; }
+  if(adminOrder.length < DRIVERS.length){ adminErr = "1位〜" + DRIVERS.length + "位まで全員の順位を入れてください"; render(); return; }
   busy = true; toast("判定中…");
-  try{ const r = await api({action:"judge", first, second, third, pin: adminPin}); if(!r.ok) adminErr = r.error; }
-  catch(e){ adminErr = "通信できませんでした。もう一度押してください"; }
+  try{
+    const r = await api({action:"judge", order: adminOrder.join(","), comment: commentDraft, pin: adminPin});
+    if(!r.ok) adminErr = r.error;
+  }catch(e){ adminErr = "通信できませんでした。もう一度押してください"; }
+  finally{ busy = false; render(); }
+}
+async function onSaveComment(){
+  busy = true;
+  try{
+    const r = await api({action:"comment", comment: commentDraft, pin: adminPin});
+    toast(r.ok ? "コメントを保存しました。全員の画面に表示されます" : r.error);
+  }catch(e){ toast("通信できませんでした"); }
   finally{ busy = false; render(); }
 }
 function askConfirm(msg, okLabel, action){
@@ -322,11 +342,16 @@ function render(){
   app.innerHTML = h;
 }
 function tabBtn(k, label){ return `<button class="tab" role="tab" aria-selected="${tab===k}" data-tab="${k}">${label}</button>`; }
+function rankLabel(i){ return ["🥇 1位","🥈 2位","🥉 3位"][i] || (i + 1) + "位"; }
 function resultBox(){
   const j = judge(result);
+  const order = result.order || [result.first, result.second, result.third];
+  const rows = order.map((id, i) => `<tr class="${i < 3 ? "top" : ""}"><td class="rk">${rankLabel(i)}</td><td class="vn">${esc(dLabel(id))}</td><td>${picks[id] ? esc(picks[id]) + " さん" : '<span class="none">―</span>'}</td></tr>`).join("");
   return `<div class="resultBox">
-    <div style="font-weight:800">🏁 レース結果：1位 ${esc(dLabel(result.first))}／2位 ${esc(dLabel(result.second))}／3位 ${esc(dLabel(result.third))}</div>
-    <div>勝者：<span class="who">${j.winners.length ? j.winners.map(w => esc(w) + "さん").join("・") : "該当者なし"}</span></div>
+    <div style="font-size:22px;font-weight:800">🏁 レース結果</div>
+    <div>予想の勝者：<span class="who">${j.winners.length ? j.winners.map(w => esc(w) + "さん").join("・") : "該当者なし"}</span></div>
+    ${result.comment ? `<div class="comment">🎤 優勝コメント<br>${esc(result.comment)}</div>` : ""}
+    <div style="overflow-x:auto;margin-top:10px"><table class="table"><thead><tr><th>順位</th><th>ドライバー</th><th>予想した人</th></tr></thead><tbody>${rows}</tbody></table></div>
     <button class="linkBtn" data-act="showWinner">発表画面をもう一度見る</button></div>`;
 }
 function voteView(){
@@ -384,26 +409,42 @@ function adminView(){
       ${adminErr ? `<p class="err">⚠ ${esc(adminErr)}</p>` : ""}
       <button class="btn sub" data-act="pin" ${busy ? "disabled" : ""}>幹事画面を開く</button></div>`;
   }
-  const opt = sel => `<option value="">選んでください</option>` + DRIVERS.map(d => `<option value="${d.id}" ${sel===d.id?"selected":""}>${esc(d.no + " " + d.name)}${picks[d.id] ? "（" + esc(picks[d.id]) + "）" : ""}</option>`).join("");
-  return `<h2>レース結果を入力</h2>
+  const n = adminOrder.length, all = DRIVERS.length;
+  return `<h2>① ゴールした順にタップ</h2>
   <div class="card">
-    <p class="lead">レースが終わったら1位〜3位を選んで「結果判定」を押してください。カッコ内はそのドライバーを予想した人です。</p>
-    <div class="row"><div class="medal m1">1位</div><select data-rank="first">${opt(adminSel.first)}</select></div>
-    <div class="row"><div class="medal m2">2位</div><select data-rank="second">${opt(adminSel.second)}</select></div>
-    <div class="row"><div class="medal m3">3位</div><select data-rank="third">${opt(adminSel.third)}</select></div>
+    <p class="lead">1位の人から順番にタップすると、順位が付いていきます。間違えたら、その人をもう一度タップすると外れます（後ろの順位は1つずつ繰り上がります）。</p>
+    <p class="remain">${n >= all ? "✅ " + all + "名そろいました" : `次は <span class="big">${n + 1}</span> 位`}</p>
+    <div class="rankGrid">${DRIVERS.map(d => {
+      const r = adminOrder.indexOf(d.id);
+      return `<button class="rankBtn ${r >= 0 ? "on" : ""}" data-rankpick="${d.id}">
+        <span class="plate ${r >= 0 ? "r" : ""}">${r >= 0 ? (r + 1) + "位" : d.no}</span><span class="dname">${esc(d.name)}</span></button>`;
+    }).join("")}</div>
+    <div class="btns" style="grid-template-columns:1fr 1fr">
+      <button class="btn sub" data-act="undoRank" ${n ? "" : "disabled"}>1つ戻す</button>
+      <button class="btn sub" data-act="clearRank" ${n ? "" : "disabled"}>順位を全部消す</button>
+    </div>
+  </div>
+  <h2>② 優勝コメント（なくてもOK）</h2>
+  <div class="card">
+    <p class="lead">優勝者のひとことなどを入れると、結果発表と一緒に全員の画面に出ます。判定のあとから追加・修正もできます。</p>
+    <textarea id="commentInput" rows="4" maxlength="300" placeholder="例：最年長でも勝てました！みんなありがとう！">${esc(commentDraft)}</textarea>
+    ${result ? `<button class="btn sub" data-act="saveComment" ${busy ? "disabled" : ""}>🎤 コメントだけ保存する</button>` : ""}
+  </div>
+  <h2>③ 結果判定</h2>
+  <div class="card">
     ${adminErr ? `<p class="err">⚠ ${esc(adminErr)}</p>` : ""}
-    <button class="btn" data-act="judge" ${busy ? "disabled" : ""}>🏆 結果判定</button>
+    <button class="btn" data-act="judge" ${busy || n < all ? "disabled" : ""}>${result ? "🏆 順位を直して再判定" : "🏆 結果判定"}</button>
+    <p class="lead" style="margin-top:8px">${n < all ? "全員の順位を入れると押せるようになります。" : result ? "再判定すると、全員の画面にもう一度発表が出ます。" : "押すと投票が締め切られ、全員の画面に勝者発表が出ます。"}</p>
   </div>
   <div class="card"><h2 style="margin-top:0">やり直し</h2>
     <div class="btns">
       <button class="btn sub" data-act="clearResult" ${result ? "" : "disabled"}>結果だけ取り消す（投票は残す）</button>
       <button class="btn danger" data-act="resetAll">投票も結果もすべてリセット</button>
-    </div></div>
+    </div>
+  </div>
   <div class="card help">
     <h3>勝者の決まり方</h3>
     1位のドライバーを予想していた人が勝者。だれも予想していなければ2位、それもいなければ3位を予想していた人が勝者になります。
-    <h3>なぜ「早い者勝ち」なのか</h3>
-    1人のドライバーは1人しか選べないので、勝者は必ず1人に決まります（景品の取り合いにならないため）。
   </div>`;
 }
 
@@ -413,12 +454,13 @@ function showWinner(){
   const j = judge(result);
   const root = document.getElementById("modalRoot");
   const has = j.winners.length > 0;
-  root.innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="勝者発表"><div class="modal">
+  root.innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="勝者発表"><div class="modal" style="max-height:90vh;overflow-y:auto">
     <div class="trophy">${has ? "🏆" : "🏁"}</div>
     <div class="wtitle">${has ? "勝者決定！" : "該当者なし"}</div>
     ${has ? `<div class="wname">${j.winners.map(w => esc(w) + " さん").join("<br>")}</div>` : ""}
     <div class="reason">${esc(j.reason)}${has ? "<br>🎁 矢郷より豪華景品をプレゼント！" : ""}</div>
-    <div class="order">1位 ${esc(dLabel(result.first))}／2位 ${esc(dLabel(result.second))}／3位 ${esc(dLabel(result.third))}</div>
+    ${result.comment ? `<div class="comment">🎤 優勝コメント<br>${esc(result.comment)}</div>` : ""}
+    <div class="order">1位 ${esc(dLabel(result.first))}／2位 ${esc(dLabel(result.second))}／3位 ${esc(dLabel(result.third))}<br>全員の順位は、閉じたあとの画面で見られます</div>
     <button class="btn" id="closeWin">閉じる</button></div></div>`;
   document.getElementById("closeWin").onclick = () => { root.innerHTML = ""; };
   if(has) confetti();
@@ -461,15 +503,23 @@ function toast(msg){
 
 /* ===== イベント ===== */
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-tab],[data-me],[data-driver],[data-act]");
+  const t = e.target.closest("[data-tab],[data-me],[data-driver],[data-act],[data-rankpick]");
   if(!t) return;
   if(t.dataset.tab){ tab = t.dataset.tab; adminErr = ""; render(); return; }
   if(t.dataset.me){ me = t.dataset.me; lsSet("kart-me", me); render(); return; }
   if(t.dataset.driver){ onDriver(t.dataset.driver); return; }
+  if(t.dataset.rankpick){
+    const id = t.dataset.rankpick, i = adminOrder.indexOf(id);
+    if(i >= 0) adminOrder.splice(i, 1); else if(adminOrder.length < DRIVERS.length) adminOrder.push(id);
+    adminErr = ""; render(); return;
+  }
   const a = t.dataset.act;
   if(a === "changeMe"){ me = null; lsSet("kart-me", null); render(); }
   if(a === "pin") onPin();
   if(a === "judge") onJudge();
+  if(a === "saveComment") onSaveComment();
+  if(a === "undoRank"){ adminOrder.pop(); render(); }
+  if(a === "clearRank"){ adminOrder = []; render(); }
   if(a === "showWinner") showWinner();
   if(a === "clearResult") askConfirm("レース結果を取り消します。投票はそのまま残ります。", "結果を取り消す", "clearResult");
   if(a === "resetAll") askConfirm("全員の投票とレース結果をすべて消します。元に戻せません。", "すべてリセット", "reset");
@@ -478,7 +528,10 @@ document.addEventListener("change", e => {
   const r = e.target.dataset && e.target.dataset.rank;
   if(r){ adminSel[r] = e.target.value; adminErr = ""; }
 });
-document.addEventListener("input", e => { if(e.target.id === "pinInput") pinDraft = e.target.value; });
+document.addEventListener("input", e => {
+  if(e.target.id === "pinInput") pinDraft = e.target.value;
+  if(e.target.id === "commentInput") commentDraft = e.target.value;
+});
 document.addEventListener("keydown", e => { if(e.key === "Enter" && e.target.id === "pinInput") onPin(); });
 
 init();
