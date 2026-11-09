@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>社員旅行 カートレース優勝予想</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+1p:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#13294B; --navy2:#1E3A66; --orange:#F28C28; --gold:#E8B33A;
+  --bg:#EEF1F6; --surface:#FFFFFF; --text:#132033; --muted:#5A6678;
+  --line:#CDD5E1; --lock-bg:#E3E6EB; --lock-text:#8A93A0;
+  --mine-bg:#FFF2E2; --ok:#1F8A4C; --danger:#C0392B;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1726; --surface:#17233A; --text:#EEF2F8; --muted:#A9B4C6;
+    --line:#2C3B57; --lock-bg:#222C3D; --lock-text:#6F7B8E; --mine-bg:#3A2A14;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1726; --surface:#17233A; --text:#EEF2F8; --muted:#A9B4C6;
+  --line:#2C3B57; --lock-bg:#222C3D; --lock-text:#6F7B8E; --mine-bg:#3A2A14;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"M PLUS 1p","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+  font-size:18px; line-height:1.6; font-weight:500;
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--navy)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+
+/* ヘッダー：チェッカーフラッグ */
+.hero{background:var(--navy);color:#fff;position:relative;overflow:hidden;padding:22px 18px 18px}
+.hero::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:14px;
+  background:
+    conic-gradient(#fff 25%,#13294B 0 50%,#fff 0 75%,#13294B 0) 0 0/14px 14px;
+  opacity:.9;
+}
+.hero h1{font-family:"Dela Gothic One","M PLUS 1p",sans-serif;font-weight:400;font-size:clamp(26px,7vw,40px);line-height:1.25;margin:0 0 6px;letter-spacing:.02em}
+.hero h1 .flag{color:var(--gold)}
+.hero p{margin:0 0 14px;font-size:16px;color:#C9D4E6}
+.wrap{max-width:720px;margin:0 auto;padding:0 14px 40px}
+
+.banner{margin:14px 0 0;padding:12px 14px;border-radius:10px;font-size:16px;border:2px solid var(--line);background:var(--surface)}
+.banner.warn{border-color:var(--gold)}
+.banner.ok{border-color:var(--ok)}
+
+/* タブ */
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;gap:6px;background:var(--bg);padding:12px 0 10px}
+.tab{flex:1;border:2px solid var(--navy2);background:var(--surface);color:var(--text);border-radius:12px;padding:12px 4px;font-weight:800;font-size:17px}
+.tab[aria-selected="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+h2{font-size:22px;margin:18px 0 10px;font-weight:800}
+.lead{color:var(--muted);margin:0 0 12px;font-size:16px}
+
+/* 投票者選択 */
+.voters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.voterBtn{border:3px solid var(--navy2);background:var(--surface);color:var(--text);border-radius:14px;padding:20px 8px;font-size:22px;font-weight:800}
+.voterBtn small{display:block;font-size:14px;color:var(--muted);font-weight:700}
+
+.meBar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:6px}
+.meBar b{font-size:22px}
+.linkBtn{border:none;background:none;color:var(--orange);font-weight:800;text-decoration:underline;padding:6px}
+.remain{font-size:20px;font-weight:800;margin:14px 0 6px}
+.remain .big{font-size:34px;color:var(--orange)}
+
+/* ドライバー（グリッドポジション） */
+.grid{display:grid;gap:10px}
+.driver{
+  display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:center;
+  width:100%;text-align:left;border:3px solid var(--line);background:var(--surface);color:var(--text);
+  border-radius:14px;padding:12px;transition:transform .12s,border-color .12s;
+}
+.driver:active{transform:scale(.98)}
+.plate{
+  width:62px;height:62px;border-radius:12px;background:var(--navy);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-family:"Dela Gothic One",sans-serif;font-size:30px;
+}
+.dname{font-size:24px;font-weight:800;line-height:1.3}
+.dnote{font-size:15px;color:var(--muted);line-height:1.5;margin-top:2px}
+.tag{display:inline-block;margin-top:6px;font-size:15px;font-weight:800;padding:3px 10px;border-radius:99px}
+.driver.mine{border-color:var(--orange);background:var(--mine-bg)}
+.driver.mine .plate{background:var(--orange)}
+.driver.mine .tag{background:var(--orange);color:#fff}
+.driver.locked{background:var(--lock-bg);border-color:var(--lock-bg);cursor:not-allowed}
+.driver.locked .plate{background:var(--lock-text)}
+.driver.locked .dname,.driver.locked .dnote{color:var(--lock-text)}
+.driver.locked .tag{background:var(--lock-text);color:#fff}
+.driver.full{opacity:.55}
+.driver.winner{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold) inset}
+
+/* 状況表 */
+.table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:12px;overflow:hidden}
+.table th,.table td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.table th{background:var(--navy);color:#fff;font-size:16px}
+.table td.vn{font-weight:800;font-size:20px;white-space:nowrap}
+.pick{display:inline-block;background:var(--mine-bg);border:2px solid var(--orange);border-radius:8px;padding:2px 10px;margin:2px 4px 2px 0;font-weight:800}
+.none{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:2px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface);font-weight:700}
+
+/* 幹事 */
+.card{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.row{display:grid;grid-template-columns:70px 1fr;align-items:center;gap:10px;margin-bottom:12px}
+.medal{font-family:"Dela Gothic One",sans-serif;font-size:24px;text-align:center;border-radius:10px;padding:8px 0;color:#fff}
+.m1{background:var(--gold);color:#3A2A00}.m2{background:#9AA5B5}.m3{background:#B97A45}
+select{width:100%;font:inherit;font-size:20px;font-weight:700;padding:12px;border-radius:10px;border:2px solid var(--navy2);background:var(--surface);color:var(--text)}
+.btn{display:block;width:100%;border:none;border-radius:14px;padding:18px;font-size:22px;font-weight:800;color:#fff;background:var(--orange)}
+.btn.sub{background:var(--navy2);font-size:18px;padding:14px}
+.btn.danger{background:var(--danger);font-size:18px;padding:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btns{display:grid;gap:10px;margin-top:10px}
+.err{color:var(--danger);font-weight:800;margin:6px 0 10px}
+.resultBox{border:3px solid var(--gold);border-radius:14px;padding:14px;background:var(--surface);margin:14px 0}
+.resultBox .who{font-size:30px;font-weight:800;color:var(--orange)}
+.help{font-size:16px;color:var(--muted)}
+.help h3{color:var(--text);font-size:18px;margin:14px 0 4px}
+
+/* モーダル */
+.overlay{position:fixed;inset:0;z-index:40;background:rgba(10,20,40,.6);display:flex;align-items:center;justify-content:center;padding:18px}
+.modal{background:var(--surface);color:var(--text);border-radius:18px;max-width:440px;width:100%;padding:22px;text-align:center;border:4px solid var(--gold);animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.modal .trophy{font-size:64px;line-height:1}
+.modal .wtitle{font-family:"Dela Gothic One",sans-serif;font-size:26px;margin:8px 0}
+.modal .wname{font-size:40px;font-weight:800;color:var(--orange);line-height:1.3;margin:6px 0}
+.modal .reason{font-size:18px;margin:10px 0 18px;text-align:left;background:var(--bg);border-radius:10px;padding:12px}
+.modal .order{font-size:16px;color:var(--muted);margin-bottom:14px}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--navy);color:#fff;padding:14px 20px;border-radius:12px;font-size:17px;font-weight:700;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+@media (prefers-reduced-motion:reduce){.modal{animation:none}.driver{transition:none}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap" style="padding-bottom:10px">
+    <h1><span class="flag">🏁</span> カートレース<br>優勝予想</h1>
+    <p>1人2名まで、早い者勝ち。1位を当てた人に矢郷より豪華景品！</p>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<canvas id="confetti" hidden></canvas>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+/* ★Apps Scriptの「ウェブアプリのURL」を下の " " の中に貼り付けてください */
+const API_URL = "https://script.google.com/macros/s/AKfycbzkZ_GcMB4-LDLqGSCL9KxAcTJC8iKelukw6HkYr-fExJgtqL-SOMaiPAGWxuwvH6w/exec";
+
+/* ===== 固定データ ===== */
+const VOTERS = ["細川","袋谷","島倉","矢郷史子"];
+const DRIVERS = [
+  {id:"d1", no:"①", name:"矢郷", note:"カートレース経験2回ほどあり。但し最年長、運動神経の劣化激しい"},
+  {id:"d2", no:"②", name:"富永", note:"運動不足気味、戦略で勝負"},
+  {id:"d3", no:"③", name:"小林", note:"ガッツでは負けない"},
+  {id:"d4", no:"④", name:"坂井", note:"レーサー顔なんできっと…"},
+  {id:"d5", no:"⑤", name:"谷崎", note:"株もレースもイチカバチ。「だろう」運転で優勝目指す"},
+  {id:"d6", no:"⑥", name:"牛島", note:"レースよりも札幌の夜が待ち遠しい"},
+  {id:"d7", no:"⑦", name:"小山", note:"営業もレースもトップ目指します"},
+  {id:"d8", no:"⑧", name:"西島", note:"家族に高いお土産買うために死ぬ気で頑張る"},
+  {id:"d9", no:"⑨", name:"木下", note:"先日の富山マラソン余裕で完走！体力には自信あり"},
+  {id:"d10",no:"⑩", name:"吉田", note:"筋肉の力で重いハンドルも楽々操作"},
+  {id:"d11",no:"⑪", name:"山田", note:"若さがあれば何でもできる！忖度一切なし"}
+];
+const MAX_PICKS = 2;
+const D = id => DRIVERS.find(d => d.id === id);
+const dLabel = id => { const d = D(id); return d ? d.no + " " + d.name : "？"; };
+
+/* ===== 状態 ===== */
+let picks = {}, result = null, tab = "vote";
+let me = lsGet("kart-me");
+let loaded = false, netNote = "", busy = false;
+let adminSel = {first:"", second:"", third:""}, adminErr = "";
+let adminPin = "", adminOk = false;
+
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} }
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ===== サーバーとのやりとり ===== */
+async function api(params){
+  const q = new URLSearchParams(Object.assign({t: Date.now()}, params)).toString();
+  const res = await fetch(API_URL + "?" + q);
+  const data = await res.json();
+  if(data.state) applyState(data.state);
+  return data;
+}
+function applyState(st){
+  picks = st.picks || {};
+  result = st.result || null;
+  loaded = true; netNote = "";
+  afterResultChange();
+  if(!document.querySelector("select:focus")) render();
+}
+async function refresh(){
+  if(!API_URL || busy) return;
+  try{ await api({action:"state"}); }
+  catch(e){ netNote = "通信できませんでした。電波の良い場所で、少し待つと自動でつながります。"; render(); }
+}
+function init(){
+  render();
+  if(!API_URL) return;
+  refresh();
+  // 4秒ごとに最新の投票状況を取りに行く（他の人の投票を画面に反映するため）
+  setInterval(() => { if(document.visibilityState === "visible") refresh(); }, 4000);
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") refresh(); });
+}
+
+/* ===== 判定ロジック ===== */
+function judge(r){
+  const order = [["1位", r.first], ["2位", r.second], ["3位", r.third]];
+  for(let i = 0; i < order.length; i++){
+    const [rank, did] = order[i];
+    const winners = VOTERS.filter(v => picks[did] === v);
+    if(winners.length){
+      let reason;
+      if(i === 0) reason = "1位の " + dLabel(did) + " を見事的中！";
+      else {
+        const missed = order.slice(0, i).map(o => o[0] + "の" + dLabel(o[1])).join("、");
+        reason = missed + " を予想した人がいなかったため、" + rank + "の " + dLabel(did) + " を予想していた人が勝者です。";
+      }
+      return {winners, rank, did, reason};
+    }
+  }
+  return {winners: [], reason: "1位〜3位のどのドライバーも、だれも予想していませんでした。"};
+}
+function afterResultChange(){
+  if(!result) return;
+  const key = "kart-seen-" + result.judgedAt;
+  if(lsGet(key)) return;
+  lsSet(key, "1");
+  showWinner();
+}
+
+/* ===== 操作 ===== */
+async function onDriver(did){
+  if(busy) return;
+  if(result){ toast("結果が出たので投票は締め切りです"); return; }
+  const owner = picks[did];
+  if(owner && owner !== me){ toast(owner + "さんが選択済みです"); return; }
+  const mine = Object.values(picks).filter(v => v === me).length;
+  if(!owner && mine >= MAX_PICKS){ toast("2名まで選べます。変えたいときは選んだ人をタップして取り消してください"); return; }
+  busy = true; toast("送信中…");
+  try{
+    const r = await api({action: owner === me ? "release" : "claim", driver: did, voter: me});
+    if(!r.ok) toast(r.error || "できませんでした");
+    else toast(owner === me ? dLabel(did) + " の予想を取り消しました" : dLabel(did) + " に投票しました！");
+  }catch(e){ toast("送信できませんでした。もう一度タップしてください"); }
+  finally{ busy = false; render(); }
+}
+async function onPin(){
+  const v = (document.getElementById("pinInput") || {}).value || "";
+  busy = true;
+  try{
+    const r = await api({action:"checkPin", pin:v});
+    if(r.ok){ adminPin = v; adminOk = true; adminErr = ""; } else adminErr = r.error;
+  }catch(e){ adminErr = "通信できませんでした"; }
+  busy = false; render();
+}
+async function onJudge(){
+  const {first, second, third} = adminSel;
+  adminErr = "";
+  if(!first || !second || !third){ adminErr = "1位・2位・3位をすべて選んでください"; render(); return; }
+  if(new Set([first, second, third]).size < 3){ adminErr = "同じドライバーが重複しています"; render(); return; }
+  busy = true; toast("判定中…");
+  try{ const r = await api({action:"judge", first, second, third, pin: adminPin}); if(!r.ok) adminErr = r.error; }
+  catch(e){ adminErr = "通信できませんでした。もう一度押してください"; }
+  finally{ busy = false; render(); }
+}
+function askConfirm(msg, okLabel, action){
+  const root = document.getElementById("modalRoot");
+  root.innerHTML = `<div class="overlay" role="dialog" aria-modal="true"><div class="modal" style="border-color:var(--danger)">
+    <div class="reason" style="text-align:center;font-weight:800">${esc(msg)}</div>
+    <div class="btns"><button class="btn danger" id="cfOk">${esc(okLabel)}</button><button class="btn sub" id="cfNo">やめる</button></div></div></div>`;
+  document.getElementById("cfNo").onclick = () => root.innerHTML = "";
+  document.getElementById("cfOk").onclick = async () => {
+    root.innerHTML = ""; busy = true;
+    try{ const r = await api({action, pin: adminPin}); toast(r.ok ? "完了しました" : r.error); }
+    catch(e){ toast("通信できませんでした"); }
+    busy = false; render();
+  };
+}
+
+/* ===== 画面 ===== */
+function render(){
+  const app = document.getElementById("app");
+  let h = "";
+  if(!API_URL){
+    app.innerHTML = `<div class="banner warn">⚙ まだ準備中です。index.html の <b>API_URL</b> に、Apps Scriptのウェブアプリ URL を貼り付けてください。</div>`;
+    return;
+  }
+  if(netNote) h += `<div class="banner warn">${esc(netNote)}</div>`;
+  else if(!loaded) h += `<div class="banner">読み込み中…</div>`;
+  h += `<nav class="tabs" role="tablist">${tabBtn("vote","🗳 投票する")}${tabBtn("status","📋 投票状況")}${tabBtn("admin","🏆 幹事")}</nav>`;
+  if(result) h += resultBox();
+  if(tab === "vote") h += voteView();
+  if(tab === "status") h += statusView();
+  if(tab === "admin") h += adminView();
+  app.innerHTML = h;
+}
+function tabBtn(k, label){ return `<button class="tab" role="tab" aria-selected="${tab===k}" data-tab="${k}">${label}</button>`; }
+function resultBox(){
+  const j = judge(result);
+  return `<div class="resultBox">
+    <div style="font-weight:800">🏁 レース結果：1位 ${esc(dLabel(result.first))}／2位 ${esc(dLabel(result.second))}／3位 ${esc(dLabel(result.third))}</div>
+    <div>勝者：<span class="who">${j.winners.length ? j.winners.map(w => esc(w) + "さん").join("・") : "該当者なし"}</span></div>
+    <button class="linkBtn" data-act="showWinner">発表画面をもう一度見る</button></div>`;
+}
+function voteView(){
+  if(!me || !VOTERS.includes(me)){
+    return `<h2>あなたはだれですか？</h2>
+      <p class="lead">自分の名前をタップしてください。次からはこのスマホが覚えています。</p>
+      <div class="voters">${VOTERS.map(v => {
+        const n = Object.values(picks).filter(x => x === v).length;
+        return `<button class="voterBtn" data-me="${esc(v)}">${esc(v)}<small>${n}/${MAX_PICKS} 投票済み</small></button>`;
+      }).join("")}</div>`;
+  }
+  const mine = Object.values(picks).filter(v => v === me).length;
+  const left = MAX_PICKS - mine;
+  let h = `<div class="meBar"><div>投票者：<b>${esc(me)}</b> さん</div><button class="linkBtn" data-act="changeMe">名前を変える</button></div>`;
+  if(result) h += `<p class="remain">投票は締め切りました</p>`;
+  else if(left > 0) h += `<p class="remain">あと <span class="big">${left}</span> 名えらべます</p><p class="lead">1位になりそうなドライバーをタップ。グレーの人は他の人が選び済みです。</p>`;
+  else h += `<p class="remain">✅ 2名の投票が完了しました</p><p class="lead">変えたいときは、オレンジの人をタップすると取り消せます。</p>`;
+  h += `<div class="grid">${DRIVERS.map(d => driverCard(d, left)).join("")}</div>`;
+  return h;
+}
+function driverCard(d, left){
+  const owner = picks[d.id];
+  let cls = "driver", tag = "", dis = "";
+  if(owner === me){ cls += " mine"; tag = `<span class="tag">✓ あなたの予想${result ? "" : "（タップで取消）"}</span>`; }
+  else if(owner){ cls += " locked"; tag = `<span class="tag">🔒 ${esc(owner)}さんが選択済</span>`; dis = 'aria-disabled="true"'; }
+  else if(left <= 0 || result){ cls += " full"; }
+  if(result && result.first === d.id) cls += " winner";
+  return `<button class="${cls}" data-driver="${d.id}" ${dis}>
+    <span class="plate">${d.no}</span>
+    <span><span class="dname">${esc(d.name)}</span><span class="dnote" style="display:block">${esc(d.note)}</span>${tag}</span></button>`;
+}
+function statusView(){
+  const total = Object.keys(picks).length;
+  let h = `<h2>だれがだれを選んだか</h2><p class="lead">投票済み ${total} / ${VOTERS.length * MAX_PICKS} 票</p>
+  <table class="table"><thead><tr><th>投票者</th><th>予想したドライバー</th></tr></thead><tbody>`;
+  for(const v of VOTERS){
+    const ds = DRIVERS.filter(d => picks[d.id] === v);
+    h += `<tr><td class="vn">${esc(v)}</td><td>${ds.length ? ds.map(d => `<span class="pick">${esc(d.no + " " + d.name)}</span>`).join("") : '<span class="none">まだ投票していません</span>'}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  const free = DRIVERS.filter(d => !picks[d.id]);
+  h += `<h2>まだだれも選んでいないドライバー</h2><div class="chips">${free.length ? free.map(d => `<span class="chip">${esc(d.no + " " + d.name)}</span>`).join("") : '<span class="none">全員選ばれました</span>'}</div>`;
+  return h;
+}
+function adminView(){
+  if(!adminOk){
+    return `<h2>幹事用の暗証番号</h2><div class="card">
+      <p class="lead">結果入力は幹事だけが使えます。暗証番号を入れてください。</p>
+      <input id="pinInput" type="password" inputmode="numeric" style="width:100%;font:inherit;font-size:24px;padding:12px;border-radius:10px;border:2px solid var(--navy2);background:var(--surface);color:var(--text);margin-bottom:12px">
+      ${adminErr ? `<p class="err">⚠ ${esc(adminErr)}</p>` : ""}
+      <button class="btn sub" data-act="pin" ${busy ? "disabled" : ""}>幹事画面を開く</button></div>`;
+  }
+  const opt = sel => `<option value="">選んでください</option>` + DRIVERS.map(d => `<option value="${d.id}" ${sel===d.id?"selected":""}>${esc(d.no + " " + d.name)}${picks[d.id] ? "（" + esc(picks[d.id]) + "）" : ""}</option>`).join("");
+  return `<h2>レース結果を入力</h2>
+  <div class="card">
+    <p class="lead">レースが終わったら1位〜3位を選んで「結果判定」を押してください。カッコ内はそのドライバーを予想した人です。</p>
+    <div class="row"><div class="medal m1">1位</div><select data-rank="first">${opt(adminSel.first)}</select></div>
+    <div class="row"><div class="medal m2">2位</div><select data-rank="second">${opt(adminSel.second)}</select></div>
+    <div class="row"><div class="medal m3">3位</div><select data-rank="third">${opt(adminSel.third)}</select></div>
+    ${adminErr ? `<p class="err">⚠ ${esc(adminErr)}</p>` : ""}
+    <button class="btn" data-act="judge" ${busy ? "disabled" : ""}>🏆 結果判定</button>
+  </div>
+  <div class="card"><h2 style="margin-top:0">やり直し</h2>
+    <div class="btns">
+      <button class="btn sub" data-act="clearResult" ${result ? "" : "disabled"}>結果だけ取り消す（投票は残す）</button>
+      <button class="btn danger" data-act="resetAll">投票も結果もすべてリセット</button>
+    </div></div>
+  <div class="card help">
+    <h3>勝者の決まり方</h3>
+    1位のドライバーを予想していた人が勝者。だれも予想していなければ2位、それもいなければ3位を予想していた人が勝者になります。
+    <h3>なぜ「早い者勝ち」なのか</h3>
+    1人のドライバーは1人しか選べないので、勝者は必ず1人に決まります（景品の取り合いにならないため）。
+  </div>`;
+}
+
+/* ===== 勝者発表 ===== */
+function showWinner(){
+  if(!result) return;
+  const j = judge(result);
+  const root = document.getElementById("modalRoot");
+  const has = j.winners.length > 0;
+  root.innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="勝者発表"><div class="modal">
+    <div class="trophy">${has ? "🏆" : "🏁"}</div>
+    <div class="wtitle">${has ? "勝者決定！" : "該当者なし"}</div>
+    ${has ? `<div class="wname">${j.winners.map(w => esc(w) + " さん").join("<br>")}</div>` : ""}
+    <div class="reason">${esc(j.reason)}${has ? "<br>🎁 矢郷より豪華景品をプレゼント！" : ""}</div>
+    <div class="order">1位 ${esc(dLabel(result.first))}／2位 ${esc(dLabel(result.second))}／3位 ${esc(dLabel(result.third))}</div>
+    <button class="btn" id="closeWin">閉じる</button></div></div>`;
+  document.getElementById("closeWin").onclick = () => { root.innerHTML = ""; };
+  if(has) confetti();
+}
+function confetti(){
+  if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = document.getElementById("confetti");
+  c.hidden = false;
+  const ctx = c.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const W = innerWidth, H = innerHeight;
+  c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const colors = ["#F28C28","#E8B33A","#13294B","#FFFFFF","#E74C3C","#2E86DE","#27AE60"];
+  const ps = Array.from({length: 220}, () => ({
+    x: Math.random() * W, y: -20 - Math.random() * H * .6,
+    w: 6 + Math.random() * 8, h: 8 + Math.random() * 10,
+    vx: -2 + Math.random() * 4, vy: 2 + Math.random() * 4,
+    r: Math.random() * Math.PI, vr: -.2 + Math.random() * .4,
+    col: colors[(Math.random() * colors.length) | 0]
+  }));
+  const start = performance.now();
+  (function frame(t){
+    ctx.clearRect(0, 0, W, H);
+    for(const p of ps){
+      p.x += p.vx; p.y += p.vy; p.vy += .05; p.r += p.vr; p.vx *= .995;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.col; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h * Math.cos(p.r * 2));
+      ctx.restore();
+    }
+    if(t - start < 5000) requestAnimationFrame(frame);
+    else { ctx.clearRect(0, 0, W, H); c.hidden = true; }
+  })(start);
+}
+let toastTimer;
+function toast(msg){
+  const r = document.getElementById("toastRoot");
+  r.innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => r.innerHTML = "", 2800);
+}
+
+/* ===== イベント ===== */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tab],[data-me],[data-driver],[data-act]");
+  if(!t) return;
+  if(t.dataset.tab){ tab = t.dataset.tab; adminErr = ""; render(); return; }
+  if(t.dataset.me){ me = t.dataset.me; lsSet("kart-me", me); render(); return; }
+  if(t.dataset.driver){ onDriver(t.dataset.driver); return; }
+  const a = t.dataset.act;
+  if(a === "changeMe"){ me = null; lsSet("kart-me", null); render(); }
+  if(a === "pin") onPin();
+  if(a === "judge") onJudge();
+  if(a === "showWinner") showWinner();
+  if(a === "clearResult") askConfirm("レース結果を取り消します。投票はそのまま残ります。", "結果を取り消す", "clearResult");
+  if(a === "resetAll") askConfirm("全員の投票とレース結果をすべて消します。元に戻せません。", "すべてリセット", "reset");
+});
+document.addEventListener("change", e => {
+  const r = e.target.dataset && e.target.dataset.rank;
+  if(r){ adminSel[r] = e.target.value; adminErr = ""; }
+});
+document.addEventListener("keydown", e => { if(e.key === "Enter" && e.target.id === "pinInput") onPin(); });
+
+init();
+</script>
+</body>
+</html>
