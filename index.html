@@ -162,7 +162,9 @@ select{width:100%;font:inherit;font-size:20px;font-weight:700;padding:12px;borde
 const API_URL = "https://script.google.com/macros/s/AKfycbzkZ_GcMB4-LDLqGSCL9KxAcTJC8iKelukw6HkYr-fExJgtqL-SOMaiPAGWxuwvH6w/exec";
 
 /* ===== 固定データ ===== */
-const VOTERS = ["細川","袋谷","島倉","矢郷史子"];
+const MAIN_VOTERS = ["細川","袋谷","島倉","矢郷史子"]; // 旅行で投票する4名（2名ずつ）
+const SUB_VOTERS = ["田島","中楯","幸恵"];               // 4名のあと、残りから1名ずつ
+const VOTERS = MAIN_VOTERS.concat(SUB_VOTERS);
 const DRIVERS = [
   {id:"d1", no:"①", name:"矢郷", note:"カートレース経験2回ほどあり。但し最年長、運動神経の劣化激しい"},
   {id:"d2", no:"②", name:"富永", note:"運動不足気味、戦略で勝負"},
@@ -176,7 +178,10 @@ const DRIVERS = [
   {id:"d10",no:"⑩", name:"吉田", note:"筋肉の力で重いハンドルも楽々操作"},
   {id:"d11",no:"⑪", name:"山田", note:"若さがあれば何でもできる！忖度一切なし"}
 ];
-const MAX_PICKS = 2;
+const limitOf = v => SUB_VOTERS.includes(v) ? 1 : 2;
+const MAIN_TOTAL = MAIN_VOTERS.length * 2;
+const mainCount = () => Object.values(picks).filter(v => MAIN_VOTERS.includes(v)).length;
+const subLocked = v => SUB_VOTERS.includes(v) && mainCount() < MAIN_TOTAL;
 const D = id => DRIVERS.find(d => d.id === id);
 const dLabel = id => { const d = D(id); return d ? d.no + " " + d.name : "？"; };
 
@@ -185,7 +190,7 @@ let picks = {}, result = null, tab = "vote";
 let me = lsGet("kart-me");
 let loaded = false, netNote = "", busy = false;
 let adminSel = {first:"", second:"", third:""}, adminErr = "";
-let adminPin = "", adminOk = false;
+let adminPin = "", adminOk = false, pinDraft = "";
 
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ if(v==null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} }
@@ -204,7 +209,8 @@ function applyState(st){
   result = st.result || null;
   loaded = true; netNote = "";
   afterResultChange();
-  if(!document.querySelector("select:focus")) render();
+  // 入力中（暗証番号の入力・プルダウン操作中）は画面を描き直さない（入力が消えないようにするため）
+  if(!document.querySelector("select:focus, input:focus")) render();
 }
 async function refresh(){
   if(!API_URL || busy) return;
@@ -253,7 +259,8 @@ async function onDriver(did){
   const owner = picks[did];
   if(owner && owner !== me){ toast(owner + "さんが選択済みです"); return; }
   const mine = Object.values(picks).filter(v => v === me).length;
-  if(!owner && mine >= MAX_PICKS){ toast("2名まで選べます。変えたいときは選んだ人をタップして取り消してください"); return; }
+  if(!owner && subLocked(me)){ toast("4名の投票が終わってから選べます（あと" + (MAIN_TOTAL - mainCount()) + "票）"); return; }
+  if(!owner && mine >= limitOf(me)){ toast(limitOf(me) + "名まで選べます。変えたいときは選んだ人をタップして取り消してください"); return; }
   busy = true; toast("送信中…");
   try{
     const r = await api({action: owner === me ? "release" : "claim", driver: did, voter: me});
@@ -263,11 +270,13 @@ async function onDriver(did){
   finally{ busy = false; render(); }
 }
 async function onPin(){
-  const v = (document.getElementById("pinInput") || {}).value || "";
+  const el = document.getElementById("pinInput");
+  const v = ((el && el.value) || pinDraft).trim();
+  if(!v){ adminErr = "暗証番号を入れてください"; render(); return; }
   busy = true;
   try{
     const r = await api({action:"checkPin", pin:v});
-    if(r.ok){ adminPin = v; adminOk = true; adminErr = ""; } else adminErr = r.error;
+    if(r.ok){ adminPin = v; adminOk = true; adminErr = ""; pinDraft = ""; } else adminErr = r.error || "暗証番号を確認できませんでした";
   }catch(e){ adminErr = "通信できませんでした"; }
   busy = false; render();
 }
@@ -324,19 +333,24 @@ function voteView(){
   if(!me || !VOTERS.includes(me)){
     return `<h2>あなたはだれですか？</h2>
       <p class="lead">自分の名前をタップしてください。次からはこのスマホが覚えています。</p>
-      <div class="voters">${VOTERS.map(v => {
-        const n = Object.values(picks).filter(x => x === v).length;
-        return `<button class="voterBtn" data-me="${esc(v)}">${esc(v)}<small>${n}/${MAX_PICKS} 投票済み</small></button>`;
-      }).join("")}</div>`;
+      <h3 style="font-size:19px;margin:14px 0 8px">旅行メンバー（2名ずつ）</h3>
+      <div class="voters">${MAIN_VOTERS.map(voterBtn).join("")}</div>
+      <h3 style="font-size:19px;margin:20px 0 8px">お留守番メンバー（残りから1名ずつ）</h3>
+      <div class="voters">${SUB_VOTERS.map(voterBtn).join("")}</div>`;
   }
   const mine = Object.values(picks).filter(v => v === me).length;
-  const left = MAX_PICKS - mine;
+  const left = subLocked(me) ? 0 : limitOf(me) - mine;
   let h = `<div class="meBar"><div>投票者：<b>${esc(me)}</b> さん</div><button class="linkBtn" data-act="changeMe">名前を変える</button></div>`;
   if(result) h += `<p class="remain">投票は締め切りました</p>`;
+  else if(subLocked(me)) h += `<p class="remain">⏳ 4名の投票待ちです</p><p class="lead">旅行メンバー4名の投票が終わると、残ったドライバーから1名選べるようになります。<br>いま <b>${mainCount()} / ${MAIN_TOTAL}</b> 票（画面は自動で更新されます）</p>`;
   else if(left > 0) h += `<p class="remain">あと <span class="big">${left}</span> 名えらべます</p><p class="lead">1位になりそうなドライバーをタップ。グレーの人は他の人が選び済みです。</p>`;
-  else h += `<p class="remain">✅ 2名の投票が完了しました</p><p class="lead">変えたいときは、オレンジの人をタップすると取り消せます。</p>`;
+  else h += `<p class="remain">✅ ${limitOf(me)}名の投票が完了しました</p><p class="lead">変えたいときは、オレンジの人をタップすると取り消せます。</p>`;
   h += `<div class="grid">${DRIVERS.map(d => driverCard(d, left)).join("")}</div>`;
   return h;
+}
+function voterBtn(v){
+  const n = Object.values(picks).filter(x => x === v).length;
+  return `<button class="voterBtn" data-me="${esc(v)}">${esc(v)}<small>${n}/${limitOf(v)} 投票済み</small></button>`;
 }
 function driverCard(d, left){
   const owner = picks[d.id];
@@ -351,7 +365,7 @@ function driverCard(d, left){
 }
 function statusView(){
   const total = Object.keys(picks).length;
-  let h = `<h2>だれがだれを選んだか</h2><p class="lead">投票済み ${total} / ${VOTERS.length * MAX_PICKS} 票</p>
+  let h = `<h2>だれがだれを選んだか</h2><p class="lead">投票済み ${total} / ${DRIVERS.length} 票（旅行メンバー ${mainCount()} / ${MAIN_TOTAL} 票）</p>
   <table class="table"><thead><tr><th>投票者</th><th>予想したドライバー</th></tr></thead><tbody>`;
   for(const v of VOTERS){
     const ds = DRIVERS.filter(d => picks[d.id] === v);
@@ -366,7 +380,7 @@ function adminView(){
   if(!adminOk){
     return `<h2>幹事用の暗証番号</h2><div class="card">
       <p class="lead">結果入力は幹事だけが使えます。暗証番号を入れてください。</p>
-      <input id="pinInput" type="password" inputmode="numeric" style="width:100%;font:inherit;font-size:24px;padding:12px;border-radius:10px;border:2px solid var(--navy2);background:var(--surface);color:var(--text);margin-bottom:12px">
+      <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" value="${esc(pinDraft)}" style="width:100%;font:inherit;font-size:24px;padding:12px;border-radius:10px;border:2px solid var(--navy2);background:var(--surface);color:var(--text);margin-bottom:12px">
       ${adminErr ? `<p class="err">⚠ ${esc(adminErr)}</p>` : ""}
       <button class="btn sub" data-act="pin" ${busy ? "disabled" : ""}>幹事画面を開く</button></div>`;
   }
@@ -464,6 +478,7 @@ document.addEventListener("change", e => {
   const r = e.target.dataset && e.target.dataset.rank;
   if(r){ adminSel[r] = e.target.value; adminErr = ""; }
 });
+document.addEventListener("input", e => { if(e.target.id === "pinInput") pinDraft = e.target.value; });
 document.addEventListener("keydown", e => { if(e.key === "Enter" && e.target.id === "pinInput") onPin(); });
 
 init();
